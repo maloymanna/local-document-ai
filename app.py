@@ -11,14 +11,29 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.llms import LlamaCpp
 import streamlit as st
 
-# Load model
+# --- CONFIG ---
+MODEL_FOLDER = "models"
+SUPPORTED_EXTENSIONS = [".gguf"]
+
+# Get list of available models
+def get_available_models():
+    try:
+        return sorted([
+            f for f in os.listdir(MODEL_FOLDER)
+            if any(f.endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+        ])
+    except FileNotFoundError:
+        st.error("Models folder not found.")
+        return []
+
+# Load selected model
 @st.cache_resource
 def load_llm(model_path):
     callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
     llm = LlamaCpp(
         model_path=model_path,
         temperature=0.1,
-        max_tokens=2048,
+        max_tokens=512,
         top_p=0.95,
         n_gpu_layers=0,  # CPU-only
         n_batch=512,
@@ -62,11 +77,30 @@ def create_vectorstore(texts, embedding_model="all-MiniLM-L6-v2"):
 # Main app
 def main():
     st.set_page_config(page_title="Local Document AI", page_icon="📚")
-    st.title("📚 Local Document AI Assistant")
+    st.title("🧠 Local Document AI Assistant")
 
-    model_path = "models/Llama-3-8B-Instruct-Gradient-1048k-Q4_K_M.gguf"
-    llm = load_llm(model_path)
+    # Sidebar - Model Selector
+    st.sidebar.header("Model Settings")
+    available_models = get_available_models()
+    if not available_models:
+        st.sidebar.warning("No GGUF models found in 'models/' folder.")
+        st.stop()
 
+    selected_model = st.sidebar.selectbox("Choose a model", available_models)
+    model_path = os.path.join(MODEL_FOLDER, selected_model)
+
+    # Show model info
+    st.sidebar.info(f"Selected Model: {selected_model}")
+
+    # Load model
+    try:
+        llm = load_llm(model_path)
+    except Exception as e:
+        st.error("Error loading model. Make sure the file is valid and not corrupted.")
+        st.exception(e)
+        st.stop()
+
+    # Upload documents
     uploaded_files = st.file_uploader("Upload up to 5 documents", type=["pdf", "docx", "txt"], accept_multiple_files=True)
     if uploaded_files:
         with st.spinner("Processing documents..."):
