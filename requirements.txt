@@ -1,0 +1,9 @@
+# requirements.txt
+
+langchain
+faiss-cpu
+sentence-transformers
+pypdf
+python-docx
+streamlit
+llama-cpp-python
