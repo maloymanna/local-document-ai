@@ -58,5 +58,6 @@ Example models:
    ```bash
    streamlit run app.py
    ```
-   Open in browser: http://localhost:8501 
+   
+6. Open in browser: http://localhost:8501 
 
