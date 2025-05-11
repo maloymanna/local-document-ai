@@ -1,9 +1,12 @@
 # requirements.txt
 
 langchain
+langchain-community
 faiss-cpu
 sentence-transformers
 pypdf
 python-docx
 streamlit
-llama-cpp-python
+llama-cpp-python --extra-index-url https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/cpu/ 
+pytesseract
+pillow
