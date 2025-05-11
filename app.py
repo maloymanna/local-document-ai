@@ -89,23 +89,13 @@ def create_vectorstore(texts, embedding_model="all-MiniLM-L6-v2"):
 
 # Main app
 def main():
-    #st.set_page_config(page_title="Local Document AI", page_icon="🧠", layout="centered")
-    #st.title("🧠 Local Document AI Assistant")
+    st.set_page_config(page_title="Local Document AI", page_icon="assets/logo.png", layout="centered")
+    st.title("Local Document AI Assistant")
     
-    # Set page config with logo as favicon
-    st.set_page_config(
-        page_title="Local Document AI",
-        page_icon="assets/logo.png",
-        layout="centered"
-    )    
-
-    # Display logo + title using markdown
-    st.markdown("<h1 style='display: inline-block;'>![Logo](assets/logo.png)&nbsp;Local Document AI Assistant</h1>", unsafe_allow_html=True)
-
     # Add logo in sidebar
     logo_path = Path("assets/logo.png")
     if logo_path.exists():
-        st.sidebar.image(str(logo_path), use_column_width=True)
+        st.sidebar.image(str(logo_path), use_container_width=True)
     
     # Sidebar - Model Selector
     st.sidebar.header("Model Settings")
