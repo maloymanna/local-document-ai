@@ -13,6 +13,8 @@ import streamlit as st
 from PIL import Image
 import pytesseract
 from langchain.docstore.document import Document
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
 
 # --- CONFIG ---
 MODEL_FOLDER = "models"
@@ -87,16 +89,30 @@ def create_vectorstore(texts, embedding_model="all-MiniLM-L6-v2"):
     db = FAISS.from_documents(texts, embeddings)
     return db
 
+# CUSTOM FALLBACK RETRIEVER
+# Create a basic prompt template
+prompt = PromptTemplate(
+    input_variables=["question"],
+    template="{question}"
+)
+
 # Main app
 def main():
-    st.set_page_config(page_title="Local Document AI", page_icon="assets/logo.png", layout="centered")
-    st.title("Local Document AI Assistant")
-    
-    # Add logo in sidebar
+    # Set page config
     logo_path = Path("assets/logo.png")
+    st.set_page_config(
+        page_title="Local Document AI",
+        page_icon=str(logo_path) if logo_path.exists() else "🧠",
+        layout="centered"
+    )
+
+    # App title without logo
+    st.title("🧠 Local Document AI Assistant")
+
+    # Optional: Show logo in sidebar
     if logo_path.exists():
         st.sidebar.image(str(logo_path), use_container_width=True)
-    
+
     # Sidebar - Model Selector
     st.sidebar.header("Model Settings")
 
@@ -110,7 +126,7 @@ def main():
 
     st.sidebar.markdown("---")
 
-    # Sidebar - Inference Settings
+    # Sidebar - Inference Parameters
     st.sidebar.subheader("Inference Parameters")
     max_tokens = st.sidebar.slider(
         "Max Output Length",
@@ -118,7 +134,7 @@ def main():
         max_value=2048,
         value=512,
         step=64,
-        help="Maximum number of tokens (words/punctuation) to generate."
+        help="Maximum number of tokens to generate."
     )
 
     temperature = st.sidebar.slider(
@@ -127,7 +143,7 @@ def main():
         max_value=1.0,
         value=0.1,
         step=0.05,
-        help="Higher values produce more diverse outputs. Use 0.7+ for creative writing, 0.1–0.3 for factual responses."
+        help="Higher values produce more diverse outputs."
     )
 
     top_p = st.sidebar.slider(
@@ -157,8 +173,6 @@ def main():
         help="Number of model layers to run on GPU. Only works if CUDA is supported."
     )
 
-    st.sidebar.markdown("---")
-
     # Load model
     try:
         llm = load_llm(model_path, max_tokens, temperature, top_p, n_batch, n_gpu_layers)
@@ -168,7 +182,25 @@ def main():
         st.stop()
 
     # Upload documents
-    uploaded_files = st.file_uploader("Upload up to 5 documents", type=["pdf", "docx", "txt"], accept_multiple_files=True, help="Max 200MB per file")
+    uploaded_files = st.file_uploader(
+        "Upload up to 5 text documents",
+        type=["pdf", "docx", "txt"],
+        accept_multiple_files=True,
+        help="Max 50MB per file"
+    )
+
+    # Upload images
+    uploaded_images = st.file_uploader(
+        "Upload PNG slides",
+        type=["png"],
+        accept_multiple_files=True,
+        help="Max 10MB per file"
+    )
+
+    # Initialize chain
+    chain = None
+
+    # Process documents
     if uploaded_files:
         with st.spinner("Processing documents..."):
             docs = load_docs(uploaded_files)
@@ -176,8 +208,7 @@ def main():
             db = create_vectorstore(texts)
             chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
 
-    # Upload images
-    uploaded_images = st.file_uploader("Upload up to 5 PNG slides", type=["png"], accept_multiple_files=True, help="Max 50MB per file")
+    # Process images
     if uploaded_images:
         with st.spinner("Extracting text from slides..."):
             extracted_texts = []
@@ -190,16 +221,30 @@ def main():
                 if text:
                     extracted_texts.append(text)
 
-            docs = [Document(page_content=text) for text in extracted_texts]
-            texts = split_text(docs)
-            db = create_vectorstore(texts)
-            chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
+            if extracted_texts:
+                docs = [Document(page_content=text) for text in extracted_texts]
+                texts = split_text(docs)
+                db = create_vectorstore(texts)
+                chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
+
+    # Fallback chain if no documents uploaded
+    if chain is None:
+        st.info("You can ask general questions or upload documents above to get detailed answers.")
+
+        # Use custom NullRetriever instead of EmptyRetriever
+        # Fallback to LLMChain if no documents are uploaded
+        chain = LLMChain(llm=llm, prompt=prompt)
 
     # Chat interface
     user_query = st.chat_input("Ask something about your documents:")
     if user_query:
         with st.spinner("Thinking..."):
-            response = chain.run(user_query)
+            if uploaded_files or uploaded_images:
+                # Use QA chain for document-based queries
+                response = chain.run(user_query)
+            else:
+                # Use LLMChain for general Q&A
+                response = chain.run({"question": user_query})
             st.markdown(f"**Answer:**\n\n{response}")
 
 if __name__ == "__main__":
