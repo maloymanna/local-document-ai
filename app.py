@@ -89,9 +89,24 @@ def create_vectorstore(texts, embedding_model="all-MiniLM-L6-v2"):
 
 # Main app
 def main():
-    st.set_page_config(page_title="Local Document AI", page_icon="🧠", layout="centered")
-    st.title("🧠 Local Document AI Assistant")
+    #st.set_page_config(page_title="Local Document AI", page_icon="🧠", layout="centered")
+    #st.title("🧠 Local Document AI Assistant")
+    
+    # Set page config with logo as favicon
+    st.set_page_config(
+        page_title="Local Document AI",
+        page_icon="assets/logo.png",
+        layout="centered"
+    )    
 
+    # Display logo + title using markdown
+    st.markdown("<h1 style='display: inline-block;'>![Logo](assets/logo.png)&nbsp;Local Document AI Assistant</h1>", unsafe_allow_html=True)
+
+    # Add logo in sidebar
+    logo_path = Path("assets/logo.png")
+    if logo_path.exists():
+        st.sidebar.image(str(logo_path), use_column_width=True)
+    
     # Sidebar - Model Selector
     st.sidebar.header("Model Settings")
 
@@ -163,7 +178,7 @@ def main():
         st.stop()
 
     # Upload documents
-    uploaded_files = st.file_uploader("Upload up to 5 documents", type=["pdf", "docx", "txt"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload up to 5 documents", type=["pdf", "docx", "txt"], accept_multiple_files=True, help="Max 200MB per file")
     if uploaded_files:
         with st.spinner("Processing documents..."):
             docs = load_docs(uploaded_files)
@@ -172,7 +187,7 @@ def main():
             chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
 
     # Upload images
-    uploaded_images = st.file_uploader("Upload PNG slides", type=["png"], accept_multiple_files=True)
+    uploaded_images = st.file_uploader("Upload up to 5 PNG slides", type=["png"], accept_multiple_files=True, help="Max 50MB per file")
     if uploaded_images:
         with st.spinner("Extracting text from slides..."):
             extracted_texts = []
